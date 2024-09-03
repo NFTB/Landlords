@@ -36,6 +36,7 @@ public:
 
 public:
   Card();
+  Card(CardPoint point, CardSuit suit);
   void setSuit(CardSuit suit);
   void setPoint(CardPoint point);
   CardSuit suit() const;

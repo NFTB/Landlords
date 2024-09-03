@@ -80,7 +80,7 @@ bool Cards::contains(const Cards &cards) {
   return m_cards.contains(cards.m_cards);
 }
 
-Card Cards::takeRandCard() {
+Card Cards::takeRandomCard() {
   int num = QRandomGenerator::global()->bounded(m_cards.size());
   auto it = m_cards.cbegin();
   for(int i = 0; i < num; ++i, ++it);

@@ -27,7 +27,7 @@ public:
   bool contains(const Card &card);
   bool contains(const Cards &cards);
 
-  Card takeRandCard();
+  Card takeRandomCard();
   CardList toCardList(const SortType &type = Cards::SortType::Desc);
 private:
   QSet<Card>m_cards;
