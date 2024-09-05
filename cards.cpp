@@ -4,6 +4,10 @@
 
 Cards::Cards() {}
 
+Cards::Cards(const Card &card) {
+  add(card);
+}
+
 void Cards::add(const Card &card) {
   m_cards.insert(card);
 }

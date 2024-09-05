@@ -5,6 +5,7 @@
 #include <QDebug>
 #include <QPainter>
 #include <QRandomGenerator>
+#include <QTimer>
 
 GamePanel::GamePanel(QWidget *parent)
   : QMainWindow(parent)
@@ -21,6 +22,8 @@ GamePanel::GamePanel(QWidget *parent)
   initButtonsGroup();
   initPlayerContext();
   initGameScene();
+  m_timer = new QTimer(this);
+  connect(m_timer, &QTimer::timeout, this, &GamePanel::onDispatchCard);
 }
 
 GamePanel::~GamePanel() {
@@ -34,6 +37,7 @@ void GamePanel::gameControlInit() {
   Robot *rightRobot = m_gameCtl->getRightRobot();
   UserPlayer *user = m_gameCtl->getUserPlayer();
   m_playerList << leftRobot << rightRobot << user;
+  connect(m_gameCtl, &GameControl::playerStatusChanged, this, &GamePanel::onplayerStatusChanged);
 }
 
 void GamePanel::updatePlayerScore() {
@@ -49,7 +53,7 @@ void GamePanel::initCardMap() {
   m_cardBackImg = pixmap.copy(2 * m_cardSize.width(), 4 * m_cardSize.height(),
                               m_cardSize.width(), m_cardSize.height());
   for(int i = 0, suit = Card::Suit_Begin + 1; i < Card::Suit_End; ++suit, ++i) {
-    for(int j = 0, point = Card::Card_Begin + 1; point < Card::Card_SJ; ++point, ++i) {
+    for(int j = 0, point = Card::Card_Begin + 1; point < Card::Card_SJ; ++point, ++j) {
       Card card{(Card::CardPoint)point, (Card::CardSuit)suit};
       cropImage(pixmap, j *m_cardSize.width(), i *m_cardSize.height(), card);
     }
@@ -74,7 +78,12 @@ void GamePanel::cropImage(QPixmap &pix, int x, int y, Card &card) {
 void GamePanel::initButtonsGroup() {
   ui->btnGroup->initButtons();
   ui->btnGroup->selectPanel(ButtonGroup::Start);
-  connect(ui->btnGroup, &ButtonGroup::startGame, this, [ = ]() {});
+  connect(ui->btnGroup, &ButtonGroup::startGame, this, [ = ]() {
+    ui->btnGroup->selectPanel(ButtonGroup::Empty);
+    m_gameCtl->clearPlayerScore();
+    updatePlayerScore();
+    gameStatusPrecess(GameControl::DispatchCard);
+  });
   connect(ui->btnGroup, &ButtonGroup::playHand, this, [ = ]() {});
   connect(ui->btnGroup, &ButtonGroup::pass, this, [ = ]() {});
   connect(ui->btnGroup, &ButtonGroup::betPoint, this, [ = ]() {});
@@ -139,6 +148,147 @@ void GamePanel::initGameScene() {
     m_last3Card[i]->move(base + (m_baseCard->width() + 10)*i, 20);
   }
 }
+
+void GamePanel::gameStatusPrecess(GameControl::GameStatus status) {
+  m_gameStatus = status;
+  switch (status) {
+    case GameControl::DispatchCard:
+      startDispatchCard();
+      break;
+    case GameControl::CallingLord: {
+        CardList last3Card = m_gameCtl->getSurplusCards().toCardList();
+        for(int i = 0; i < 3; ++i) {
+          QPixmap front = m_cardMap[last3Card.at(i)]->getImage();
+          m_last3Card[i]->setImage(front, m_cardBackImg);
+          m_last3Card[i]->hide();
+        }
+        m_gameCtl->startLordCard();
+        break;
+      }
+    case GameControl::PlayingHand:
+      break;
+    default:
+      break;
+  }
+}
+
+void GamePanel::startDispatchCard() {
+  for(auto it = m_cardMap.begin(); it != m_cardMap.end(); ++it) {
+    it.value()->setSelected(false);
+    it.value()->setFrontSide(true);
+    it.value()->hide();
+  }
+  for(int i = 0; i < 3; ++i) {
+    m_last3Card.at(i)->hide();
+  }
+  int index = m_playerList.indexOf(m_gameCtl->getUserPlayer());
+  for(int i = 0; i < m_playerList.size(); ++i) {
+    m_contextMap[m_playerList.at(i)].lastCards.clear();
+    m_contextMap[m_playerList.at(i)].info->hide();
+    m_contextMap[m_playerList.at(i)].roleImg->hide();
+    m_contextMap[m_playerList.at(i)].isFrontSide = i == index ? true : false;
+  }
+  m_gameCtl->resetCardData();
+  m_baseCard->show();
+  ui->btnGroup->selectPanel(ButtonGroup::Empty);
+  m_timer->start(5);
+}
+
+void GamePanel::onDispatchCard() {
+  static int curMovePos = 0;
+  Player *curPlayer = m_gameCtl->getCurrentPlayer();
+  cardMoveStep(curPlayer, curMovePos);
+  curMovePos += 15;
+  if(curMovePos > 105) {
+    Card card = m_gameCtl->takeOneCard();
+    curPlayer->storeDispatchCard(card);
+    Cards cards{card};
+    disposCard(curPlayer, cards);
+    m_gameCtl->setCurrentPlayer(curPlayer->getNextPlayer());
+    curMovePos = 0;
+    if(m_gameCtl->getSurplusCards().cardCount() == 3) {
+      m_timer->stop();
+      gameStatusPrecess(GameControl::CallingLord);
+    }
+  }
+}
+
+void GamePanel::cardMoveStep(Player *player, int curPos) {
+  QRect cardRect = m_contextMap[player].cardRect;
+  int uint[] = {
+    (m_baseCardPos.x() - cardRect.right()) / 100,
+    (cardRect.left() - m_baseCardPos.x()) / 100,
+    (cardRect.top() - m_baseCardPos.y()) / 100
+  };
+  QPoint pos[] = {
+    QPoint(m_baseCardPos.x() - curPos *uint[0], m_baseCardPos.y()),
+    QPoint(m_baseCardPos.x() + curPos *uint[1], m_baseCardPos.y()),
+    QPoint(m_baseCardPos.x(), m_baseCardPos.y() + curPos *uint[2])
+  };
+  int index = m_playerList.indexOf(player);
+  m_moveCard->move(pos[index]);
+  if(curPos == 0) {
+    m_moveCard->show();
+  }
+  if(curPos == 105) {
+    m_moveCard->hide();
+  }
+}
+
+void GamePanel::disposCard(Player *player, Cards &cards) {
+  CardList list = cards.toCardList();
+  for(int i = 0; i < list.size(); ++i) {
+    // qDebug() << m_cardMap.count(list.at(i)) << ' ' << m_cardMap.size();
+    CardPanel* panel = m_cardMap[list.at(i)];
+    panel->setOwner(player);
+  }
+  updatePlayerCards(player);
+}
+
+void GamePanel::updatePlayerCards(Player *player) {
+  Cards cards = player->getCards();
+  CardList list = cards.toCardList();
+  QRect cardsRect = m_contextMap[player].cardRect;
+  bool isfront = m_contextMap[player].isFrontSide;
+  int cardSpace = 20;
+  for(int i = 0; i < list.size(); ++i) {
+    CardPanel* panel = m_cardMap[list.at(i)];
+    panel->show();
+    panel->raise();
+    panel->setFrontSide(isfront);
+    if(m_contextMap[player].align == Horizontal) {
+      int leftX = cardsRect.left() + (cardsRect.width() - (list.size() - 1)
+                                      * cardSpace - panel->width()) / 2;
+      int topY = cardsRect.top() + (cardsRect.height() - m_cardSize.height()) / 2;
+      if(panel->isSelected()) {
+        topY -= 10;
+      }
+      panel->move(leftX + cardSpace *i, topY);
+    } else {
+      int leftX = cardsRect.left() + (cardsRect.width() - m_cardSize.width()) / 2;
+      int topY = cardsRect.top() + (cardsRect.height() - (list.size() - 1)
+                                    * cardSpace - panel->height()) / 2;
+      panel->move(leftX, topY + i *cardSpace);
+    }
+  }
+}
+
+void GamePanel::onplayerStatusChanged(Player *player, GameControl::PlayerStatus status) {
+  switch(status) {
+    case GameControl::ThinkingForCallLord:
+      if(player == m_gameCtl->getUserPlayer()) {
+        ui->btnGroup->selectPanel(ButtonGroup::CallLord);
+      }
+      break;
+    case GameControl::ThinkingForPlayHand:
+      break;
+    case GameControl::Winning:
+      break;
+    default:
+      break;
+  }
+}
+
 
 void GamePanel::paintEvent(QPaintEvent *ev) {
   QPainter p(this);

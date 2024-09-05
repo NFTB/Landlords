@@ -26,6 +26,13 @@ public:
   void initButtonsGroup();
   void initPlayerContext();
   void initGameScene();
+  void gameStatusPrecess(GameControl::GameStatus status);
+  void startDispatchCard();
+  void onDispatchCard();
+  void cardMoveStep(Player *player, int curPos);
+  void disposCard(Player *player, Cards &cards);
+  void updatePlayerCards(Player *player);
+  void onplayerStatusChanged(Player *player, GameControl::PlayerStatus status);
 protected:
   void paintEvent(QPaintEvent *ev)override;
 private:
@@ -51,5 +58,7 @@ private:
   CardPanel *m_moveCard;
   QVector<CardPanel *>m_last3Card;
   QPoint m_baseCardPos;
+  GameControl::GameStatus m_gameStatus;
+  QTimer *m_timer;
 };
 #endif // GAMEPANEL_H

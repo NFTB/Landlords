@@ -37,6 +37,7 @@ public:
   void becomeLord(Player *player);
   void clearPlayerScore();
 signals:
+  void playerStatusChanged(Player *player, PlayerStatus status);
 private:
   Robot *m_robotLeft;
   Robot *m_robotRight;
