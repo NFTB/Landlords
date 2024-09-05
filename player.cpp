@@ -1,12 +1,15 @@
 #include "player.h"
 
 Player::Player(QObject *parent)
-  : QObject{parent}
-{}
+  : QObject{parent} {
+  m_score = 0;
+  m_isWin = false;
+}
 
 Player::Player(QString name, QObject *parent)
-  : QObject{parent}, m_name{name}
-{}
+  : Player(parent) {
+  m_name = name;
+}
 
 void Player::setScore(const int &score) {
   m_score = score;
@@ -113,12 +116,8 @@ Cards Player::getPendCards() {
   return m_pendCards;
 }
 
-void Player::prepareCallLord()
-{
-
+void Player::prepareCallLord() {
 }
 
-void Player::preparePlayHand()
-{
-
+void Player::preparePlayHand() {
 }

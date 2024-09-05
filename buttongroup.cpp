@@ -1,5 +1,6 @@
 #include "buttongroup.h"
 #include "ui_buttongroup.h"
+#include "mybutton.h"
 
 ButtonGroup::ButtonGroup(QWidget *parent)
   : QWidget(parent)

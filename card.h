@@ -50,6 +50,7 @@ bool greaterSort(const Card &c1, const Card &c2);
 
 bool operator==(const Card &leaf, const Card &right);
 uint qHash(const Card &card);
+bool operator <(const Card &c1, const Card &c2);
 
 using CardList = QVector<Card>;
 #endif // CARD_H

@@ -1,16 +1,16 @@
 #include "mybutton.h"
+
 #include <QMouseEvent>
 #include <QPainter>
-#include <qdebug>
-MyButton::MyButton(QWidget *parent)
-  : QPushButton{parent}
-{}
+
+MyButton::MyButton(QWidget *parent) : QPushButton(parent) {
+}
 
 void MyButton::setImage(QString normal, QString hover, QString pressed) {
   m_normal = normal;
   m_hover = hover;
   m_pressed = pressed;
-  m_pixmap.load(normal);
+  m_pixmap.load(m_normal);
   update();
 }
 
@@ -31,19 +31,18 @@ void MyButton::mouseReleaseEvent(QMouseEvent *ev) {
 }
 
 void MyButton::enterEvent(QEvent *ev) {
-  Q_UNUSED(ev);
   m_pixmap.load(m_hover);
   update();
 }
 
 void MyButton::leaveEvent(QEvent *ev) {
-  Q_UNUSED(ev);
+  Q_UNUSED(ev)
   m_pixmap.load(m_normal);
   update();
 }
 
 void MyButton::paintEvent(QPaintEvent *ev) {
-  Q_UNUSED(ev);
+  Q_UNUSED(ev)
   QPainter p(this);
   p.drawPixmap(rect(), m_pixmap);
 }
